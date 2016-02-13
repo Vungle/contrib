@@ -31,10 +31,17 @@ import (
 
 const (
 	nginxConf = `
+worker_processes 4;
 events {
-  worker_connections 1024;
+  worker_connections 64000;
 }
 http {
+  tcp_nopush on;
+  tcp_nodelay on;
+  
+  gzip on;
+  gzip_types application/javascript application/x-javascript text/css text/xml application/xml;
+
   # http://nginx.org/en/docs/http/ngx_http_core_module.html
   types_hash_max_size 2048;
   server_names_hash_max_size 512;
@@ -61,12 +68,24 @@ func shellOut(cmd string) {
 	}
 }
 
+func restartNginx(cmd string) {
+
+        out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+        if err != nil {
+                log.Printf("Failed to parse nginx.conf %v: %v, err: %v", cmd, string(out), err)
+		log.Printf("Not restarting nginx.")
+        } else {
+		log.Printf("Nginx.conf looks good.  Restart nginx")
+		shellOut("nginx -s reload")
+	}
+}
+
 func main() {
 	var ingClient client.IngressInterface
 	if kubeClient, err := client.NewInCluster(); err != nil {
 		log.Fatalf("Failed to create client: %v.", err)
 	} else {
-		ingClient = kubeClient.Extensions().Ingress(api.NamespaceAll)
+		ingClient = kubeClient.Extensions().Ingress("devops-test")
 	}
 	tmpl, _ := template.New("nginx").Parse(nginxConf)
 	rateLimiter := util.NewTokenBucketRateLimiter(0.1, 1)
@@ -90,6 +109,9 @@ func main() {
 		} else if err := tmpl.Execute(w, ingresses); err != nil {
 			log.Fatalf("Failed to write template %v", err)
 		}
-		shellOut("nginx -s reload")
+
+		restartNginx("nginx -t")
+
 	}
 }
+
