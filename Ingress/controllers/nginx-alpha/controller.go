@@ -45,7 +45,7 @@ http {
   # http://nginx.org/en/docs/http/ngx_http_core_module.html
   types_hash_max_size 2048;
   server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
+  server_names_hash_bucket_size 128;
   
   server {
   	location /nginx_status {
@@ -94,7 +94,7 @@ func main() {
 	if kubeClient, err := client.NewInCluster(); err != nil {
 		log.Fatalf("Failed to create client: %v.", err)
 	} else {
-		ingClient = kubeClient.Extensions().Ingress("devops-test")
+		ingClient = kubeClient.Extensions().Ingress("default")
 	}
 	tmpl, _ := template.New("nginx").Parse(nginxConf)
 	rateLimiter := util.NewTokenBucketRateLimiter(0.1, 1)
