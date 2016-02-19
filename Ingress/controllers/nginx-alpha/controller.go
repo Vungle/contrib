@@ -51,9 +51,9 @@ http {
   	location /nginx_status {
 	      stub_status on;
 	      access_log   off;
-	      allow 0.0.0.0;
+	      allow 127.0.0.1;
 	      deny all;
-	    }
+	  }
   }
 
 {{range $ing := .Items}}
@@ -79,11 +79,11 @@ func shellOut(cmd string) {
 
 func restartNginx(cmd string) {
 
-        out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
-        if err != nil {
-                log.Printf("Failed to parse nginx.conf %v: %v, err: %v", cmd, string(out), err)
+	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+	if err != nil {
+		log.Printf("Failed to parse nginx.conf %v: %v, err: %v", cmd, string(out), err)
 		log.Printf("Not restarting nginx.")
-        } else {
+	} else {
 		log.Printf("Nginx.conf looks good.  Restart nginx")
 		shellOut("nginx -s reload")
 	}
@@ -123,4 +123,3 @@ func main() {
 
 	}
 }
-
