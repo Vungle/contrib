@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/google_containers/nginx-slim:0.2
+#FROM gcr.io/google_containers/nginx-slim:0.2
+FROM vungle/nginx-slim:edge
 
 COPY nginx-third-party-lb /
 COPY nginx.tmpl /
