@@ -13,12 +13,12 @@
 # limitations under the License.
 
 
-FROM alpine:3.2
+FROM alpine:edge
 
 RUN apk add --update-cache bash && \
   rm -rf /var/cache/apk/*
 
-COPY build.sh /tmp
+COPY build.sh /tmp/
 
 RUN /tmp/build.sh
 
