@@ -60,6 +60,7 @@ http {
 {{range $rule := $ing.Spec.Rules}}
   server {
     listen 80;
+    listen 443;
     server_name {{$rule.Host}};
 {{ range $path := $rule.HTTP.Paths }}
     location {{$path.Path}} {
@@ -94,7 +95,7 @@ func main() {
 	if kubeClient, err := client.NewInCluster(); err != nil {
 		log.Fatalf("Failed to create client: %v.", err)
 	} else {
-		ingClient = kubeClient.Extensions().Ingress("default")
+		ingClient = kubeClient.Extensions().Ingress("devops-test")
 	}
 	tmpl, _ := template.New("nginx").Parse(nginxConf)
 	rateLimiter := util.NewTokenBucketRateLimiter(0.1, 1)
