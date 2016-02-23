@@ -14,7 +14,7 @@
 
 
 #FROM alpine:edge
-FROM sillelien/base-alpine:0.10
+#FROM sillelien/base-alpine:0.10
 	# https://github.com/sillelien/base-alpine#dns-and-the-alpine-resolvconf-problem
 
 FROM janeczku/alpine-kubernetes:3.3
