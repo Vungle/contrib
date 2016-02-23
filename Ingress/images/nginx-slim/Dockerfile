@@ -13,7 +13,12 @@
 # limitations under the License.
 
 
-FROM alpine:edge
+#FROM alpine:edge
+FROM sillelien/base-alpine:0.10
+	# https://github.com/sillelien/base-alpine#dns-and-the-alpine-resolvconf-problem
+
+FROM janeczku/alpine-kubernetes:3.3
+	# https://github.com/janeczku/docker-alpine-kubernetes
 
 RUN apk add --update-cache bash && \
   rm -rf /var/cache/apk/*
