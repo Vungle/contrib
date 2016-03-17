@@ -104,18 +104,34 @@ func restartHaproxy(cmd string) {
 }
 
 func main() {
+	flags.Parse(os.Args)
+	cfg := parseCfg(*config, *lbDefAlgorithm, *sslCert, *sslCaCert)
+
+	defErrorPage := newStaticPageHandler(*errorPage, defaultErrorPage)
+	if defErrorPage == nil {
+		glog.Fatalf("Failed to load the default error page")
+	}
+
+	if *startSyslog {
+		cfg.startSyslog = true
+		_, err = newSyslogServer("/var/run/haproxy.log.socket")
+		if err != nil {
+			glog.Fatalf("Failed to start syslog server: %v", err)
+		}
+	}
+	go registerHandlers(defErrorPage)
 	var ingClient client.IngressInterface
 	if kubeClient, err := client.NewInCluster(); err != nil {
 		log.Fatalf("Failed to create client: %v.", err)
 	} else {
-		ingClient = kubeClient.Extensions().Ingress("devops-test")
+		ingClient = kubeClient.Extensions().Ingress(os.Getenv("INGRESS_NAMESPACE"))
 	}
-	tmpl, _ := template.New("nginx").Parse(nginxConf)
+	tmpl, _ := template.New("haproxy").Parse("template.cfg")
 	rateLimiter := util.NewTokenBucketRateLimiter(0.1, 1)
 	known := &extensions.IngressList{}
 
 	// Controller loop
-	shellOut("nginx")
+	shellOut("haproxy")
 	for {
 		rateLimiter.Accept()
 		ingresses, err := ingClient.List(api.ListOptions{})
@@ -127,8 +143,8 @@ func main() {
 			continue
 		}
 		known = ingresses
-		if w, err := os.Create("/etc/nginx/nginx.conf"); err != nil {
-			log.Fatalf("Failed to open %v: %v", nginxConf, err)
+		if w, err := os.Create("/etc/haproxy/haproxy.conf"); err != nil {
+			log.Fatalf("Failed to create haproxy.conf : %v", err)
 		} else if err := tmpl.Execute(w, ingresses); err != nil {
 			log.Fatalf("Failed to write template %v", err)
 		}
@@ -168,36 +184,4 @@ func main() {
 			glog.Fatalf("Failed to start syslog server: %v", err)
 		}
 	}
-
-	if *cluster {
-		if kubeClient, err = unversioned.NewInCluster(); err != nil {
-			glog.Fatalf("Failed to create client: %v", err)
-		}
-	} else {
-		config, err := clientConfig.ClientConfig()
-		if err != nil {
-			glog.Fatalf("error connecting to the client: %v", err)
-		}
-		kubeClient, err = unversioned.New(config)
-	}
-	namespace, specified, err := clientConfig.Namespace()
-	if err != nil {
-		glog.Fatalf("unexpected error: %v", err)
-	}
-	if !specified {
-		namespace = api.NamespaceAll
-	}
-
-	// TODO: Handle multiple namespaces
-	lbc := newLoadBalancerController(cfg, kubeClient, namespace, tcpSvcs)
-
-	go lbc.epController.Run(util.NeverStop)
-	go lbc.svcController.Run(util.NeverStop)
-	if *dry {
-		dryRun(lbc)
-	} else {
-		lbc.cfg.reload()
-		util.Until(lbc.worker, time.Second, util.NeverStop)
-	}
-
 }
