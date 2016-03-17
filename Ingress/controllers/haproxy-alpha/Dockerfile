@@ -32,13 +32,10 @@ RUN wget -O /sbin/dumb-init https://github.com/Yelp/dumb-init/releases/download/
 
 ENTRYPOINT ["dumb-init", "/service_loadbalancer"]
 
-ADD haproxy.cfg /etc/haproxy/haproxy.cfg
-ADD service_loadbalancer service_loadbalancer
-ADD service_loadbalancer.go service_loadbalancer.go
-ADD template.cfg template.cfg
-ADD loadbalancer.json loadbalancer.json
-ADD haproxy_reload haproxy_reload
-ADD README.md README.md
+COPY haproxy.cfg /etc/haproxy/haproxy.cfg
+COPY template.cfg template.cfg
+COPY haproxy_reload haproxy_reload
+COPY README.md README.md
 
 RUN touch /var/run/haproxy.pid
 
