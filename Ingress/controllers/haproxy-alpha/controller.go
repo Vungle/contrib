@@ -30,28 +30,6 @@ import (
 )
 
 // ingress encapsulates a single backend entry in the load balancer config.
-type ingress struct {
-	Name string
-	Ep   []string
-
-	// Kubernetes endpoint port. The application must serve a 200 page on this port.
-	BackendPort int
-
-	// FrontendPort is the port that the loadbalancer listens on for traffic
-	// for this service. For http, it's always :80, for each tcp service it
-	// is the service port of any service matching a name in the tcpServices set.
-	FrontendPort int
-
-	// Host if not empty it will add a new haproxy acl to route traffic using the
-	// host header inside the http request. It only applies to http traffic.
-	Host string
-
-	// if true, terminate ssl using the loadbalancers certificates.
-	SslTerm bool
-
-	// if set use this to match the path rule
-	AclMatch string
-}
 
 type staticPageHandler struct {
 	pagePath     string
