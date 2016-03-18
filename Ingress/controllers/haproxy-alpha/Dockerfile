@@ -13,18 +13,12 @@
 # limitations under the License.
 
 
-FROM alpine:3.2
+FROM gcr.io/google_containers/haproxy:0.2
 MAINTAINER Prashanth B <beeps@google.com>
-
-COPY haproxy.apk /var/cache/apk/haproxy.apk
-
-RUN apk add -U pcre bash curl socat lua5.3 && \
-  apk add --allow-untrusted /var/cache/apk/haproxy.apk && \
-  rm -rf /var/cache/apk/*
 
 RUN mkdir -p /etc/haproxy/errors /var/state/haproxy
 RUN for ERROR_CODE in 400 403 404 408 500 502 503 504;do curl -sSL -o /etc/haproxy/errors/$ERROR_CODE.http \
-	https://raw.githubusercontent.com/haproxy/haproxy-1.5/master/examples/errorfiles/$ERROR_CODE.http;done
+  https://raw.githubusercontent.com/haproxy/haproxy-1.5/master/examples/errorfiles/$ERROR_CODE.http;done
 
 # https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem
 RUN wget -O /sbin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.0.0/dumb-init_1.0.0_amd64 && \
@@ -32,10 +26,8 @@ RUN wget -O /sbin/dumb-init https://github.com/Yelp/dumb-init/releases/download/
 
 ENTRYPOINT ["dumb-init", "/service_loadbalancer"]
 
-COPY haproxy.cfg /etc/haproxy/haproxy.cfg
-COPY template.cfg template.cfg
-COPY haproxy_reload haproxy_reload
-COPY README.md README.md
+ADD haproxy.cfg /etc/haproxy/haproxy.cfg
+ADD haproxy_reload haproxy_reload
 
 RUN touch /var/run/haproxy.pid
 
