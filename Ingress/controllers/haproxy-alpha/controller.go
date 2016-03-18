@@ -30,7 +30,7 @@ import (
 )
 
 // ingress encapsulates a single backend entry in the load balancer config.
-type service struct {
+type ingress struct {
 	Name string
 	Ep   []string
 
@@ -51,25 +51,6 @@ type service struct {
 
 	// if set use this to match the path rule
 	AclMatch string
-
-	// Algorithm
-	Algorithm string
-
-	// If SessionAffinity is set and without CookieStickySession, requests are routed to
-	// a backend based on client ip. If both SessionAffinity and CookieStickSession are
-	// set, a SERVERID cookie is inserted by the loadbalancer and used to route subsequent
-	// requests. If neither is set, requests are routed based on the algorithm.
-
-	// Indicates if the service must use sticky sessions
-	// http://cbonte.github.io/haproxy-dconv/configuration-1.5.html#stick-table
-	// Enabled using the attribute service.spec.sessionAffinity
-	// https://github.com/kubernetes/kubernetes/blob/master/docs/user-guide/services.md#virtual-ips-and-service-proxies
-	SessionAffinity bool
-
-	// CookieStickySession use a cookie to enable sticky sessions.
-	// The name of the cookie is SERVERID
-	// This only can be used in http services
-	CookieStickySession bool
 }
 
 type staticPageHandler struct {
