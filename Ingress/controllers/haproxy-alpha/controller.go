@@ -180,7 +180,7 @@ func main() {
 			log.Fatalf("Failed to write template %v", err)
 		}
 
-		restartHaproxy("haproxy -t")
+		restartHaproxy("haproxy -c")
 
 	}
 }
