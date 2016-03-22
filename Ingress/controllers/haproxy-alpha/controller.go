@@ -162,7 +162,7 @@ func main() {
 	known := &extensions.IngressList{}
 
 	// Controller loop
-	shellOut("haproxy")
+	shellOut("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid")
 	for {
 		rateLimiter.Accept()
 		ingresses, err := ingClient.List(api.ListOptions{})
@@ -171,6 +171,7 @@ func main() {
 			continue
 		}
 		if reflect.DeepEqual(ingresses.Items, known.Items) {
+			log.Printf("ingresses: %v", ingresses)
 			continue
 		}
 		known = ingresses
@@ -180,7 +181,7 @@ func main() {
 			log.Fatalf("Failed to write template %v", err)
 		}
 
-		restartHaproxy("haproxy -c")
+		restartHaproxy("haproxy -f /etc/haproxy/haproxy.cfg -c")
 
 	}
 }
