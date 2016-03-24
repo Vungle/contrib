@@ -3,4 +3,5 @@ ACCOUNT=Vungle
 APP=contrib
 docker run --rm -it -v "$(dirname $(dirname $(dirname $PWD)))":/go/src/github.com/$ACCOUNT/$APP -w /go/src/github.com/$ACCOUNT/$APP/Ingress/controllers/haproxy-alpha golang sh -c '
 go get github.com/tools/godep
+go get
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 godep go build -a -installsuffix cgo -ldflags "-w" -o controller ./controller.go'

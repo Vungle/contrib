@@ -24,6 +24,8 @@ RUN for ERROR_CODE in 400 403 404 408 500 502 503 504;do curl -sSL -o /etc/hapro
 RUN wget -O /sbin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.0.0/dumb-init_1.0.0_amd64 && \
   chmod +x /sbin/dumb-init
 
+RUN wget https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/darwin/amd64/kubectl
+
 ENTRYPOINT ["dumb-init", "/controller"]
 
 ADD haproxy.cfg /etc/haproxy/haproxy.cfg

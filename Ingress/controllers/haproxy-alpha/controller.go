@@ -34,7 +34,7 @@ const (
 global
     daemon
     stats socket /tmp/haproxy
-    server-state-file global       
+    server-state-file global
     server-state-base /var/state/haproxy/
 		quiet
 		nbproc  2
@@ -42,29 +42,36 @@ global
 
 defaults
     log global
-   
+		option  httplog
+    errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
     load-server-state-from-file global
-    
+
     # Enable session redistribution in case of connection failure.
     option redispatch
-    
-    # Disable logging of null connections (haproxy connections like checks). 
+
+    # Disable logging of null connections (haproxy connections like checks).
     # This avoids excessive logs from haproxy internals.
     option dontlognull
-    
+
     # Enable HTTP connection closing on the server side.
     option http-server-close
 
-    # Enable insertion of the X-Forwarded-For header to requests sent to 
+    # Enable insertion of the X-Forwarded-For header to requests sent to
     # servers and keep client IP address.
     option forwardfor
-    
+
     # Enable HTTP keep-alive from client to server.
     option http-keep-alive
 
     # Clients should send their full http request in 5s.
     timeout http-request    5s
-    
+
     # Maximum time to wait for a connection attempt to a server to succeed.
     timeout connect         5s
 
@@ -73,16 +80,16 @@ defaults
     timeout client          50s
 
     # Inactivity timeout on the client side for half-closed connections.
-    # Applies when the client is expected to acknowledge or send data 
+    # Applies when the client is expected to acknowledge or send data
     # while one direction is already shut down.
     timeout client-fin      50s
-    
+
     # Maximum inactivity time on the server side.
     timeout server          50s
-    
+
     # timeout to use with WebSocket and CONNECT
     timeout tunnel          1h
-    
+
     # Maximum allowed time to wait for a new HTTP request to appear.
     timeout http-keep-alive 60s
 
@@ -105,26 +112,23 @@ listen stats
     stats uri /
 
 frontend httpfrontend
+		mode http
+		maxconn 65536
     # Frontend bound on all network interfaces on port 80
     bind *:80
 
 {{range $ing := .Items}}
 {{range $rule := $ing.Spec.Rules}}
-backend {{$rule.Host}};
-    option  httplog
-    errorfile 400 /etc/haproxy/errors/400.http
-    errorfile 403 /etc/haproxy/errors/403.http
-    errorfile 408 /etc/haproxy/errors/408.http
-    errorfile 500 /etc/haproxy/errors/500.http
-    errorfile 502 /etc/haproxy/errors/502.http
-    errorfile 503 /etc/haproxy/errors/503.http
-    errorfile 504 /etc/haproxy/errors/504.http
+		backend {{$rule.Host}};
     {{ range $path := $rule.HTTP.Paths }}
-    acl url_acl_{{$rule.Host}} path_beg /{{$path.Path}}
-    {{ if $svc.Host }}acl host_acl_{{$rule.Host}} hdr(host) {{$svc.Host}}
-    use_backend {{$rule.Host}} if url_acl_{{$rule.Host}} or host_acl_{{$rule.Host}}
-    {{ else }}use_backend {{$rule.Host}} if url_acl_{{$rule.Host}}
-{{ end }}
+    acl url_acl_{{$rule.Host}} path_beg {{$path.Path}}
+			{{ if $rule.Host }}acl host_acl_{{$rule.Host}} hdr(host) {{$rule.Host}}
+				use_backend {{$rule.Host}} if url_acl_{{$rule.Host}} or host_acl_{{$rule.Host}}
+			{{ else }}
+				use_backend {{$rule.Host}} if url_acl_{{$rule.Host}}
+			{{end}}
+    {{end}}
+{{end}}
 {{end}}
 `
 )
