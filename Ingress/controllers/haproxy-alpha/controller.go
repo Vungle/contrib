@@ -17,16 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"github.com/codeskyblue/go-sh"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/apis/extensions"
+	client "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/util"
 	"log"
 	"os"
 	"os/exec"
 	"reflect"
 	"text/template"
-
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/util"
 )
 
 const (
@@ -111,23 +111,28 @@ listen stats
     stats realm Haproxy\ Statistics
     stats uri /
 
-frontend httpfrontend
+frontend http
 		mode http
 		maxconn 65536
     # Frontend bound on all network interfaces on port 80
     bind *:80
+{{range $ing := .Items}}
+{{range $rule := $ing.Spec.Rules}}
+  {{ range $path := $rule.HTTP.Paths }}
+  acl host_acl_{{$path.Backend.ServiceName}} hdr(host) {{$rule.Host}}
+  acl url_acl_{{$rule.Host}} path_beg {{$path.Path}}
+  use_backend {{$path.Backend.ServiceName}} if url_acl_{{$rule.Host}} host_acl_{{$path.Backend.ServiceName}}
+  {{end}}
+{{end}}
+{{end}}
 
 {{range $ing := .Items}}
 {{range $rule := $ing.Spec.Rules}}
-		backend {{$rule.Host}};
-    {{ range $path := $rule.HTTP.Paths }}
-    acl url_acl_{{$rule.Host}} path_beg {{$path.Path}}
-			{{ if $rule.Host }}acl host_acl_{{$rule.Host}} hdr(host) {{$rule.Host}}
-				use_backend {{$rule.Host}} if url_acl_{{$rule.Host}} or host_acl_{{$rule.Host}}
-			{{ else }}
-				use_backend {{$rule.Host}} if url_acl_{{$rule.Host}}
-			{{end}}
-    {{end}}
+{{ range $path := $rule.HTTP.Paths }}
+backend {{$path.Backend.ServiceName}}
+  server {{$path.Backend.ServiceName}} {{$path.Backend.ServiceName}}.{{$ing.Namespace}}.svc.cluster.local:{{$path.Backend.ServicePort}} check
+  {{end}}
+
 {{end}}
 {{end}}
 `
@@ -141,7 +146,6 @@ func shellOut(cmd string) {
 }
 
 func restartHaproxy(cmd string) {
-
 	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 	if err != nil {
 		log.Printf("Failed to parse haproxy.cfg %v: %v, err: %v", cmd, string(out), err)
@@ -154,6 +158,13 @@ func restartHaproxy(cmd string) {
 	}
 }
 
+func configLint(msg string) {
+	log.Printf(msg)
+	config := "/etc/haproxy/haproxy.cfg"
+	sh.Command("awk", "!x[$0]++", config, ">>", config).Run()
+	sh.Command("sed", "-i.bak", "/use_backend lets-encrypt/d", config).Run()
+}
+
 func main() {
 	var ingClient client.IngressInterface
 	if kubeClient, err := client.NewInCluster(); err != nil {
@@ -162,6 +173,7 @@ func main() {
 		ingClient = kubeClient.Extensions().Ingress(os.Getenv("INGRESS_NAMESPACE"))
 	}
 	tmpl, _ := template.New("haproxy").Parse(haproxyConf)
+	configLint("Running Linter before loop")
 	rateLimiter := util.NewTokenBucketRateLimiter(0.1, 1)
 	known := &extensions.IngressList{}
 
@@ -175,7 +187,7 @@ func main() {
 			continue
 		}
 		if reflect.DeepEqual(ingresses.Items, known.Items) {
-			log.Printf("ingresses: %v", ingresses)
+			log.Printf("Nothing Has Changed")
 			continue
 		}
 		known = ingresses
@@ -184,7 +196,7 @@ func main() {
 		} else if err := tmpl.Execute(w, ingresses); err != nil {
 			log.Fatalf("Failed to write template %v", err)
 		}
-
+		configLint("Running Lint Before Restart")
 		restartHaproxy("haproxy -f /etc/haproxy/haproxy.cfg -c")
 
 	}
