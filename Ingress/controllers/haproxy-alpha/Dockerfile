@@ -29,8 +29,8 @@ RUN wget https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/da
 ENTRYPOINT ["dumb-init", "/controller"]
 
 ADD haproxy.cfg /etc/haproxy/haproxy.cfg
-ADD haproxy_reload haproxy_reload
+ADD haproxy_reload /usr/bin/haproxy_reload
+RUN chmod +x /usr/bin/haproxy_reload
 ADD controller /controller
 
 RUN touch /var/run/haproxy.pid
-

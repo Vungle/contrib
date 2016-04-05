@@ -24,6 +24,7 @@ import (
 	"k8s.io/kubernetes/pkg/util"
 	"log"
 	"os"
+	"io/ioutil"
 	"os/exec"
 	"reflect"
 	"text/template"
@@ -43,13 +44,6 @@ global
 defaults
     log global
 		option  httplog
-    errorfile 400 /etc/haproxy/errors/400.http
-    errorfile 403 /etc/haproxy/errors/403.http
-    errorfile 408 /etc/haproxy/errors/408.http
-    errorfile 500 /etc/haproxy/errors/500.http
-    errorfile 502 /etc/haproxy/errors/502.http
-    errorfile 503 /etc/haproxy/errors/503.http
-    errorfile 504 /etc/haproxy/errors/504.http
     load-server-state-from-file global
 
     # Enable session redistribution in case of connection failure.
@@ -97,12 +91,6 @@ defaults
     # mode is overwritten in case of tcp services
     mode http
 
-    # default default_backend. This allows custom default_backend in frontends
-    default_backend default-backend
-
-backend default-backend
-  server localhost 127.0.0.1:8081
-
 # haproxy stats, required hostport and firewall rules for :1936
 listen stats
     bind *:1936
@@ -146,23 +134,30 @@ func shellOut(cmd string) {
 }
 
 func restartHaproxy(cmd string) {
+	configLint("Running Lint Before Restart")
 	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 	if err != nil {
 		log.Printf("Failed to parse haproxy.cfg %v: %v, err: %v", cmd, string(out), err)
-		log.Printf("Not restarting haproxy.")
 	} else {
 		log.Printf("Haproxy.cfg looks good.  Restart haproxy")
 		//to reload a new cfgiguration with minimal service impact and without
 		//breaking existing sessions :
-		shellOut("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy-private.pid -st /var/run/haproxy-private.pid")
+		shellOut("haproxy_reload")
 	}
 }
 
 func configLint(msg string) {
 	log.Printf(msg)
 	config := "/etc/haproxy/haproxy.cfg"
-	sh.Command("awk", "!x[$0]++", config, ">>", config).Run()
+	deduped,_ := sh.Command("awk", "!x[$0]++", config).Output()
+	err := ioutil.WriteFile(config, deduped, 0644)
+  if err == nil {
+		log.Printf("Duplicates removed")
+	} else {
+		log.Printf("Error removing duplicates")
+	}
 	sh.Command("sed", "-i.bak", "/use_backend lets-encrypt/d", config).Run()
+	log.Printf("Lets Encrypt Backends Removed")
 }
 
 func main() {
@@ -173,7 +168,6 @@ func main() {
 		ingClient = kubeClient.Extensions().Ingress(os.Getenv("INGRESS_NAMESPACE"))
 	}
 	tmpl, _ := template.New("haproxy").Parse(haproxyConf)
-	configLint("Running Linter before loop")
 	rateLimiter := util.NewTokenBucketRateLimiter(0.1, 1)
 	known := &extensions.IngressList{}
 
@@ -193,11 +187,10 @@ func main() {
 		known = ingresses
 		if w, err := os.Create("/etc/haproxy/haproxy.cfg"); err != nil {
 			log.Fatalf("Failed to open %v: %v", haproxyConf, err)
+			defer w.Close()
 		} else if err := tmpl.Execute(w, ingresses); err != nil {
 			log.Fatalf("Failed to write template %v", err)
 		}
-		configLint("Running Lint Before Restart")
-		restartHaproxy("haproxy -f /etc/haproxy/haproxy.cfg -c")
-
+		restartHaproxy("haproxy_reload")
 	}
 }
